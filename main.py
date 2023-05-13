@@ -1,5 +1,6 @@
 import os
 
+
 class NKA:
     def __init__(self, filename):
         self.stats_count = 0
@@ -7,7 +8,7 @@ class NKA:
         self.stats = list()
         self.start = None
         self.finite_states = list()
-        self.e_nka = 0
+        self.e_nka = False
 
         with open(filename, 'r') as _:
             lines = _.readlines()
@@ -16,23 +17,34 @@ class NKA:
         self.alphabet = [i for i in lines[1].strip("[]\n").split(",")]
 
         for i in range(2, 2 + self.stats_count):
-            line = lines[i].strip("}\n").split("{")
-            for l in range(1, len(line)):
-                print(line[l][(line[l].find('[') + 1):(line[l].find(']'))])
+            line = lines[i].strip("\n ").replace(" ", "").split("=")
+            try:
+                line = line[1].strip("{}").split("],")
+                line = [_.replace("[", "").replace("]", "") for _ in line]
+                for _ in line:
+                    _ = _.split(":")
+                    self.stats.append([_[0], _[1].split(",")])
+            except IndexError:
+                print("error: wrong stat string")
 
+        self.start = lines[2 + self.stats_count].strip("\n")
+        self.finite_states = lines[2 + self.stats_count + 1].strip("[]").split(",")
+        if "e" in self.alphabet:
+            self.e_nka = True
+
+    def nkainfo(self):
+        print(self.stats_count)
+        print(self.alphabet)
+        print(self.stats)
+        print(self.start)
+        print(self.finite_states)
+        print(self.e_nka)
 
 class DKA:
     def __init__(self):
         print()
 
-        # 2  # число состояний НКА
-        # [0, 1]  # алфавит
-        # Q0 = {0: [Q1], 1: []}  # описание первого состояния
-        #  # <символ алфавита>:[<список состояний, в которые переходит автомат по данному символу>]
-        # Q1 = {0: [Q0, Q1], 1: [Q1]}  # описание второго состояния
-        # Q0  # начальное состояние
-        # [Q1]  # список допустимых состояний
-
 
 if __name__ == '__main__':
     n = NKA("file1.txt")
+    n.nkainfo()
