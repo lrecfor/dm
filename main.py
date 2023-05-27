@@ -24,10 +24,10 @@ class NKA:
                 line = [_.replace("[", "").replace("]", "") for _ in line]
                 for _ in line:
                     _ = _.split(":")
-                    if str(stat) not in self.stats:
-                        self.stats[str(stat)] = [[str(_[0]), str(", ".join(_[1].split(",")))]]
+                    if str(stat) in self.stats:
+                        self.stats[str(stat)] |= ({str(_[0]): str(", ".join(_[1].split(",")))})
                     else:
-                        self.stats[str(stat)].append([str(_[0]), str(", ".join(_[1].split(",")))])
+                        self.stats[str(stat)] = {str(_[0]): str(", ".join(_[1].split(",")))}
             except IndexError:
                 print("error: wrong stat string")
 
@@ -123,7 +123,7 @@ class DKA:
 
 
 if __name__ == '__main__':
-    n = NKA("file3.txt")
+    n = NKA("file2.txt")
     n.info()
 
     d = n.to_dka()
