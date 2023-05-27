@@ -16,27 +16,34 @@ class NKA:
             lines = _.readlines()
         self.stats_count = int(lines[0])
 
-        self.alphabet = [i for i in lines[1].strip("[]\n").replace(" ", "").split(",")]
+        self.alphabet = [str(i) for i in lines[1].strip("[]\n").replace(" ", "").split(",")]
 
         for i in range(2, 2 + self.stats_count):
             line = lines[i].strip("\n ").replace(" ", "").split("=")
             try:
-                stat = line[0]
+                stat = str(line[0])
                 line = line[1].strip("{}").split("],")
                 line = [_.replace("[", "").replace("]", "") for _ in line]
+                for k in self.alphabet:
+                    if str(stat) in self.stats:
+                        self.stats[str(stat)] |= ({k: {}})
+                    else:
+                        self.stats[str(stat)] = ({k: {}})
                 for _ in line:
                     _ = _.split(":")
-                    if str(stat) in self.stats:
-                        self.stats[str(stat)] |= ({str(_[0]): str(", ".join(_[1].split(",")))})
-                    else:
-                        self.stats[str(stat)] = {str(_[0]): str(", ".join(_[1].split(",")))}
+                    if _[0] not in self.alphabet:
+                        print("error: wrong stat string")
+                        exit(-1)
+                    self.stats[stat][str(_[0])] = str(", ".join(_[1].split(",")))
             except IndexError:
                 print("error: wrong stat string")
+                exit(-1)
 
         self.start = lines[2 + self.stats_count].strip("\n")
         self.finite_states = lines[2 + self.stats_count + 1].strip("[]").split(",")
         if "e" in self.alphabet:
             self.e_nka = True
+            self.alphabet.remove("e")
 
     def info(self):
         print("Stats count: ", self.stats_count)
@@ -46,13 +53,38 @@ class NKA:
         print("Finite stats: ", self.finite_states)
         print("e-NKA: ", self.e_nka, end="\n\n")
 
+    def e_closure(self):
+        e_close = {}
+
+        for q1, v1 in self.stats.items():
+            lst = []
+            for _ in v1.items():
+                lst += self.stats.get(q1)["e"].replace(" ", "").split(",")
+            e_close[q1] = list(set(lst + [q1]))
+
+        for e_cl in reversed(self.stats.keys()):
+            if "" in e_close[e_cl]:
+                e_close[e_cl].remove("")
+            for s in e_close[e_cl]:
+                if s != e_cl:
+                    lst = e_close.get(s)
+                    if "" in lst:
+                        lst.remove("")
+                    if lst is not None:
+                        e_close[e_cl] = sorted(list(set(lst + e_close[e_cl])))
+
+        return e_close
+
     def to_dka(self):
-        # alphabet, Q =  состояния, s = старт
-        #T = конечные, D = функции переходов
         res_DKA = DKA()
         P = [self.start]
         Qd = [self.start]
         Dd = {}
+        e_close = {}
+
+        if self.e_nka:
+            e_close = self.e_closure()
+            P = [", ".join(e_close.get(P[0]))]
 
         while P:
             pd = "".join(P.pop(0)).replace(" ", "").split(",")
@@ -60,11 +92,12 @@ class NKA:
                 qd = list()
                 for p in pd:
                     if not p:
-                        Dd[""] = {"": ""}
-                        continue
-                    if self.stats.get(p)[c] != "":
+                        break
+                    if self.stats.get(p)[c] != "" and len(self.stats.get(p)[c]) > 0:
                         qd += self.stats.get(p)[c].replace(" ", "").split(",")
-                # qd = [_ for _ in qd if _.isdigit() or _.isalpha()]
+                    if self.e_nka and qd:
+                        for q in set(qd):
+                            qd += e_close.get(q)
                 qd = ", ".join(list(sorted(set(qd)))).strip()
                 if ", ".join(pd) in Dd:
                     Dd[", ".join(pd)] |= ({c: qd})
@@ -83,6 +116,7 @@ class NKA:
         res_DKA.stats = Dd
         res_DKA.stats_count = self.stats_count
         res_DKA.finite_states = Td
+
         return res_DKA
 
 
@@ -93,7 +127,6 @@ class DKA:
         self.stats = dict()
         self.start = None
         self.finite_states = list()
-        self.e_nka = False
 
         if not filename:
             return
@@ -101,42 +134,68 @@ class DKA:
             lines = _.readlines()
         self.stats_count = int(lines[0])
 
-        self.alphabet = [i for i in lines[1].strip("[]\n").replace(" ", "").split(",")]
+        self.alphabet = [str(i) for i in lines[1].strip("[]\n").replace(" ", "").split(",")]
 
         for i in range(2, 2 + self.stats_count):
             line = lines[i].strip("\n ").replace(" ", "").split("=")
             try:
-                stat = line[0]
+                stat = str(line[0])
                 line = line[1].strip("{}").split("],")
                 line = [_.replace("[", "").replace("]", "") for _ in line]
+                for k in self.alphabet:
+                    if str(stat) in self.stats:
+                        self.stats[str(stat)] |= ({k: {}})
+                    else:
+                        self.stats[str(stat)] = ({k: {}})
                 for _ in line:
                     _ = _.split(":")
-                    if str(stat) in self.stats:
-                        self.stats[str(stat)] |= ({str(_[0]): str(", ".join(_[1].split(",")))})
-                    else:
-                        self.stats[str(stat)] = {str(_[0]): str(", ".join(_[1].split(",")))}
+                    if _[0] not in self.alphabet:
+                        print("error: wrong stat string")
+                        exit(-1)
+                    self.stats[stat][str(_[0])] = str(", ".join(_[1].split(",")))
             except IndexError:
                 print("error: wrong stat string")
+                exit(-1)
 
         self.start = lines[2 + self.stats_count].strip("\n")
         self.finite_states = lines[2 + self.stats_count + 1].strip("[]").split(",")
 
     def info(self):
-        print("Stats count: ", self.stats_count)
-        print("Alphabet: ", self.alphabet)
-        print("Stats: ", self.stats)
-        print("Start stat: ", self.start)
-        print("Finite stats: ", self.finite_states, end="\n\n")
+            print("Stats count: ", self.stats_count)
+            print("Alphabet: ", self.alphabet)
+            print("Stats: ", self.stats)
+            print("Start stat: ", self.start)
+            print("Finite stats: ", self.finite_states, end="\n\n")
+
+    def chk(self, chain):
+        if set(chain).difference(set(self.alphabet)):
+            return 0
+        stat = list(self.stats.keys())
+        substr = ""
+        i = 0
+        j = 0
+        while j < len(chain):
+            symb = stat[i]
+            substr += chain[j]
+            cur_stat = self.stats.get(symb)[chain[j]][1:]
+            if cur_stat != substr[-len(cur_stat):]:
+                return 0
+            if symb != self.stats.get(symb)[chain[j]]:
+                i += 1
+            j += 1
+        return 1
 
 
-def print_stats(ka):
+def print_(ka):
     keys_ = [_ for _, __ in ka.stats.items()]
     print("{:20}".format(""), end="")
     for _ in ka.alphabet:
-        print("{:10} {:10}".format("|", _), end="")
+        if _ != "e":
+            print("{:10} {:10}".format("|", _), end="")
     print()
     sep = "-"
-    sep *= (20 * 4) - 18
+    mul = len(ka.alphabet) + 1
+    sep *= ((20 * mul) + mul)
     print(sep)
     for k in keys_:
         if k in ka.finite_states:
@@ -146,13 +205,36 @@ def print_stats(ka):
         for _ in list(ka.stats[k].values()):
             print("{:} {:19}".format("|", "{" + _ + "}"), end="")
         print()
+    print(end="\n")
+
+
+def print_in_file(ka, filename="output.txt"):
+    file = open(filename, "w")
+    keys_ = [_ for _, __ in ka.stats.items()]
+    file.write(str("{:20}".format("")))
+    for _ in ka.alphabet:
+        if _ != "e":
+            file.write(str("{:10} {:10}".format("|", _)))
+    file.write("\n")
+    sep = "-"
+    mul = len(ka.alphabet) + 1
+    sep *= ((20 * mul) + mul)
+    file.write(sep + "\n")
+    for k in keys_:
+        if k in ka.finite_states:
+            file.write(str("{:20}".format("*{" + k + "}")))
+        else:
+            file.write(str("{:20}".format("{" + k + "}")))
+        for _ in list(ka.stats[k].values()):
+            file.write(str("{:} {:19}".format("|", "{" + _ + "}")))
+        file.write("\n")
 
 
 if __name__ == '__main__':
-    n = NKA("file5.txt")
+    n = NKA("file2.txt")
     n.info()
 
-    d = n.to_dka()
+    d = DKA("dka1.txt")
     d.info()
-
-    print_stats(d)
+    print_(d)
+    print(d.chk("101001"))
