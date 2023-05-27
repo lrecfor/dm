@@ -25,9 +25,9 @@ class NKA:
                 for _ in line:
                     _ = _.split(":")
                     if str(stat) not in self.stats:
-                        self.stats[str(stat)] = [[_[0], _[1].split(",")]]
+                        self.stats[str(stat)] = [[str(_[0]), str(", ".join(_[1].split(",")))]]
                     else:
-                        self.stats[str(stat)].append([_[0], _[1].split(",")])
+                        self.stats[str(stat)].append([str(_[0]), str(", ".join(_[1].split(",")))])
             except IndexError:
                 print("error: wrong stat string")
 
@@ -69,12 +69,10 @@ class NKA:
                 qd = list()
                 for p in pd:
                     if not self.alphabet[0].isdigit():
-                        qd = qd + self.stats.get([self.alphabet.index(c)][1])
-                    qd = qd + self.stats.get(p)[int(c)][1]
-                if str(pd) not in Dd:
-                    Dd[str(pd)] = [[c, qd]]
-                else:
-                    Dd[str(pd)].append([c, qd])
+                        qd = qd + self.stats.get(p)[self.alphabet.index(c)][1]
+                    # else:
+                    #    qd = qd + self.stats.get(p)[int(c)][1]
+                Dd[str(pd)] = [[c, qd]]
                 if qd not in Qd:
                     P.append(qd)
                     Qd.append(qd)
