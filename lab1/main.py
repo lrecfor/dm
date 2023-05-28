@@ -215,7 +215,7 @@ class DKA:
         return 1
 
     def minimize(self):
-        tbl = {i: {j: "" if j != i else "-" for j in list(self.stats.keys())} for i in list(self.stats.keys())}
+        tbl = {i: {j: "o" if j != i and j < i else "-" for j in list(self.stats.keys())} for i in list(self.stats.keys())}
         for i in tbl:
             for j in tbl.get(i):
                 if (i in self.finite_states and j < i) or (j in self.finite_states and i > j):
@@ -239,19 +239,25 @@ class DKA:
                             else:
                                 tbl.get(i)[j] = "x"
                         stop_fl = 0
-        print_tbl(tbl)
+        p.print_tbl(tbl)
 
+        # temp_stats = self.stats.copy()
+        # self.stats = {}
+        new_stats = []
 
-def print_tbl(tbl):
-    print(str("{:3}".format("")), end="")
-    for _ in list(tbl.keys()):
-        print(str("{:3}".format(_)), end="")
-    print()
-    for i in tbl:
-        print("{:3}".format(i), end="")
-        for j in tbl.get(i):
-            print("{:3}".format(tbl.get(i)[j]), end="")
-        print()
+        for i in tbl:
+            for j in tbl:
+                if tbl.get(i)[j] == 'o' or tbl.get(i)[j] == 'o':
+                    new_stats.append([j, i])
+        print(new_stats)
+        n_st = list(tbl.keys())
+        for i in range(0, len(n_st)):
+            for j in new_stats:
+                if set(n_st[i]).intersection(set(j)):
+                    n_st[i] = set(n_st[i]).union(set(j))
+            n_st[i] = ", ".join(sorted(n_st[i]))
+        n_st = list(set(n_st))
+        print(n_st)
 
 
 if __name__ == '__main__':
@@ -259,7 +265,7 @@ if __name__ == '__main__':
     n.info()
     # p.print_in_file(n.to_dka())
 
-    d = DKA("lab1/dka2.txt")
+    d = DKA("lab1/dka3.txt")
     d.info()
     p.print_(d)
 

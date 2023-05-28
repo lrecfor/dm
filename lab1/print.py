@@ -55,3 +55,15 @@ def test(ka):
         number -= 1
 
     return results
+
+
+def print_tbl(tbl):
+    print(str("{:3}".format("")), end="")
+    for _ in list(tbl.keys()):
+        print(str("{:3}".format(_)), end="")
+    print()
+    for i in tbl:
+        print("{:3}".format(i), end="")
+        for j in tbl.get(i):
+            print("{:3}".format(tbl.get(i)[j]), end="")
+        print()
