@@ -124,11 +124,11 @@ class NKA:
             pd = "".join(P.pop(0)).replace(" ", "").split(",")
             for c in self.alphabet:
                 qd = list()
-                for p in pd:
-                    if not p:
+                for p_ in pd:
+                    if not p_:
                         break
-                    if self.stats.get(p)[c] != "" and len(self.stats.get(p)[c]) > 0:
-                        qd += self.stats.get(p)[c].replace(" ", "").split(",")
+                    if self.stats.get(p_)[c] != "" and len(self.stats.get(p_)[c]) > 0:
+                        qd += self.stats.get(p_)[c].replace(" ", "").split(",")
                     if self.e_nka and qd:
                         for q in set(qd):
                             qd += e_close.get(q)
@@ -215,7 +215,8 @@ class DKA:
         return 1
 
     def minimize(self):
-        tbl = {i: {j: "o" if j != i and j < i else "-" for j in list(self.stats.keys())} for i in list(self.stats.keys())}
+        tbl = {i: {j: "o" if j != i and j < i else "-" for j in list(self.stats.keys())}
+               for i in list(self.stats.keys())}
         for i in tbl:
             for j in tbl.get(i):
                 if (i in self.finite_states and j < i) or (j in self.finite_states and i > j):
@@ -240,34 +241,37 @@ class DKA:
                                 tbl.get(i)[j] = "x"
                         stop_fl = 0
 
-        new_stats = []
-        for i in tbl:
-            for j in tbl:
-                if tbl.get(i)[j] == 'o' or tbl.get(i)[j] == 'o':
-                    new_stats.append([j, i])
+        def chg_stats():
+            new_stats = []
+            for i in tbl:
+                for j in tbl:
+                    if tbl.get(i)[j] == 'o' or tbl.get(i)[j] == 'o':
+                        new_stats.append([j, i])
 
-        n_st = list(tbl.keys())
-        for i in range(0, len(n_st)):
-            for j in new_stats:
-                if set(n_st[i]).intersection(set(j)):
-                    n_st[i] = set(n_st[i]).union(set(j))
-            n_st[i] = ", ".join(sorted(n_st[i]))
-        n_st = list(set(n_st))
+            n_st = list(tbl.keys())
+            for i in range(0, len(n_st)):
+                for j in new_stats:
+                    if set(n_st[i]).intersection(set(j)):
+                        n_st[i] = set(n_st[i]).union(set(j))
+                n_st[i] = ", ".join(sorted(n_st[i]))
+            n_st = list(set(n_st))
 
-        temp_stats = self.stats.copy()
-        self.stats = {}
-        for i in n_st:
-            nst_stat = temp_stats.get(i[0])
-            for k in self.alphabet:
-                n_val = nst_stat[k]
-                for st in n_st:
-                    if n_val in st:
-                        n_val = st
-                        break
-                if i in self.stats:
-                    self.stats[i] |= ({k: n_val})
-                else:
-                    self.stats[i] = ({k: n_val})
+            temp_stats = self.stats.copy()
+            self.stats = {}
+            for i in n_st:
+                nst_stat = temp_stats.get(i[0])
+                for k in self.alphabet:
+                    n_val = nst_stat[k]
+                    for stat in n_st:
+                        if n_val in stat:
+                            n_val = stat
+                            break
+                    if i in self.stats:
+                        self.stats[i] |= ({k: n_val})
+                    else:
+                        self.stats[i] = ({k: n_val})
+
+        chg_stats()
 
 
 if __name__ == '__main__':
