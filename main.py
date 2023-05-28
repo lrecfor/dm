@@ -6,6 +6,9 @@ class NKA:
         self.start = None
         self.finite_states = list()
         self.e_nka = False
+        self.cur_stat = "x"
+
+        self.__shiza = []
 
         if not filename:
             return
@@ -49,6 +52,37 @@ class NKA:
         print("Start stat: ", self.start)
         print("Finite stats: ", self.finite_states)
         print("e-NKA: ", self.e_nka, end="\n\n")
+
+    def chk(self, chain_):
+        def chk_(chain, indx=0, cur_stat='x'):
+            if set(chain).difference(set(self.alphabet)):
+                return 0
+
+            if indx == len(chain):
+                self.__shiza.append(0)
+                return 0
+
+            cur_stat = self.stats[cur_stat][chain[indx]]
+            if cur_stat == "":
+                self.__shiza.append(0)
+                return 0
+            if ", " in cur_stat:
+                cur_stat = cur_stat.replace(" ", "").split(",")
+                for _ in cur_stat:
+                    chk_(chain, indx + 1, _)
+                    if _ in self.finite_states and indx == len(chain) - 1:
+                        self.__shiza.append(1)
+                        return 1
+            else:
+                chk_(chain, indx + 1, cur_stat)
+                if cur_stat in self.finite_states and indx == len(chain) - 1:
+                    self.__shiza.append(1)
+                    return 1
+
+        chk_(chain_)
+        if 1 in self.__shiza:
+            return 1
+        return 0
 
     def e_closure(self):
         e_close = {}
@@ -168,7 +202,6 @@ class DKA:
         if set(chain).difference(set(self.alphabet)):
             return 0
 
-        k = list(self.stats.keys())
         cur_stat = self.start
 
         for symb in chain:
@@ -239,16 +272,16 @@ def test(ka):
 
 
 if __name__ == '__main__':
-    n = NKA("file2.txt")
+    n = NKA("nka1.txt")
     n.info()
 
     d = DKA("dka1.txt")
     d.info()
     print_(d)
-    print(d.chk("101001"))
+
+    print("checking chains: ")
+    print("DKA(): ", d.chk("101001"))
+    print("NKA(): ", n.chk("0100100"))
 
     out = test(d)
     exit(1)
-
-# В качестве проверки нужно взять все цепочки
-# в алфавите длины не более 10 и применить к ним оба автомата.
