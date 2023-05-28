@@ -272,10 +272,10 @@ def test(ka):
 
 
 if __name__ == '__main__':
-    n = NKA("nka1.txt")
+    n = NKA("lab1/nka1.txt")
     n.info()
 
-    d = DKA("dka1.txt")
+    d = DKA("lab1/dka1.txt")
     d.info()
     print_(d)
 
