@@ -1,3 +1,6 @@
+import print as p
+
+
 class NKA:
     def __init__(self, filename):
         self.stats_count = 0
@@ -189,14 +192,14 @@ class DKA:
                 exit(-1)
 
         self.start = lines[2 + self.stats_count].strip("\n")
-        self.finite_states = lines[2 + self.stats_count + 1].strip("[]").split(",")
+        self.finite_states = lines[2 + self.stats_count + 1].strip("[]").replace(" ", "").split(",")
 
     def info(self):
-            print("Stats count: ", self.stats_count)
-            print("Alphabet: ", self.alphabet)
-            print("Stats: ", self.stats)
-            print("Start stat: ", self.start)
-            print("Finite stats: ", self.finite_states, end="\n\n")
+        print("Stats count: ", self.stats_count)
+        print("Alphabet: ", self.alphabet)
+        print("Stats: ", self.stats)
+        print("Start stat: ", self.start)
+        print("Finite stats: ", self.finite_states, end="\n\n")
 
     def chk(self, chain):
         if set(chain).difference(set(self.alphabet)):
@@ -211,77 +214,61 @@ class DKA:
             return 0
         return 1
 
+    def minimize(self):
+        tbl = {i: {j: "" if j != i else "-" for j in list(self.stats.keys())} for i in list(self.stats.keys())}
+        for i in tbl:
+            for j in tbl.get(i):
+                if (i in self.finite_states and j < i) or (j in self.finite_states and i > j):
+                    if i in self.finite_states and j in self.finite_states:
+                        continue
+                    tbl.get(i)[j] = "x"
 
-def print_(ka):
-    keys_ = [_ for _, __ in ka.stats.items()]
-    print("{:20}".format(""), end="")
-    for _ in ka.alphabet:
-        if _ != "e":
-            print("{:10} {:10}".format("|", _), end="")
+        for _ in range(0, 2):
+            stop_fl = 0
+            for i in tbl:
+                if stop_fl == 1:
+                    break
+                for j in list(tbl.keys())[list(tbl.keys()).index(i) + 1:]:
+                    stop_fl = 1
+                    frst = self.stats.get(i)
+                    scnd = self.stats.get(j)
+                    for st in self.alphabet:
+                        if tbl.get(frst[st])[scnd[st]] == "x" or tbl.get(scnd[st])[frst[st]] == "x":
+                            if j > i:
+                                tbl.get(j)[i] = "x"
+                            else:
+                                tbl.get(i)[j] = "x"
+                        stop_fl = 0
+        print_tbl(tbl)
+
+
+def print_tbl(tbl):
+    print(str("{:3}".format("")), end="")
+    for _ in list(tbl.keys()):
+        print(str("{:3}".format(_)), end="")
     print()
-    sep = "-"
-    mul = len(ka.alphabet) + 1
-    sep *= ((20 * mul) + mul)
-    print(sep)
-    for k in keys_:
-        if k in ka.finite_states:
-            print("{:20}".format("*{" + k + "}"), end='')
-        else:
-            print("{:20}".format("{" + k + "}"), end='')
-        for _ in list(ka.stats[k].values()):
-            print("{:} {:19}".format("|", "{" + _ + "}"), end="")
+    for i in tbl:
+        print("{:3}".format(i), end="")
+        for j in tbl.get(i):
+            print("{:3}".format(tbl.get(i)[j]), end="")
         print()
-    print(end="\n")
-
-
-def print_in_file(ka, filename="output.txt"):
-    file = open(filename, "w")
-    keys_ = [_ for _, __ in ka.stats.items()]
-    file.write(str("{:20}".format("")))
-    for _ in ka.alphabet:
-        if _ != "e":
-            file.write(str("{:10} {:10}".format("|", _)))
-    file.write("\n")
-    sep = "-"
-    mul = len(ka.alphabet) + 1
-    sep *= ((20 * mul) + mul)
-    file.write(sep + "\n")
-    for k in keys_:
-        if k in ka.finite_states:
-            file.write(str("{:20}".format("*{" + k + "}")))
-        else:
-            file.write(str("{:20}".format("{" + k + "}")))
-        for _ in list(ka.stats[k].values()):
-            file.write(str("{:} {:19}".format("|", "{" + _ + "}")))
-        file.write("\n")
-
-
-def test(ka):
-    number = 1023
-    length = number.bit_length()
-    results = []
-
-    while number >= 0:
-        chain = bin(number)[2:]
-        if len(chain) < length:
-            chain = str('0' * (length - len(chain))) + chain
-        results.append({chain: ka.chk(chain)})
-        number -= 1
-
-    return results
 
 
 if __name__ == '__main__':
     n = NKA("lab1/nka1.txt")
     n.info()
+    # p.print_in_file(n.to_dka())
 
-    d = DKA("lab1/dka1.txt")
+    d = DKA("lab1/dka2.txt")
     d.info()
-    print_(d)
+    p.print_(d)
 
-    print("checking chains: ")
-    print("DKA(): ", d.chk("101001"))
-    print("NKA(): ", n.chk("0100100"))
+    # print("checking chains: ")
+    # print("DKA(): ", d.chk("101001"))
+    # print("NKA(): ", n.chk("0100100"))
 
-    out = test(d)
-    exit(1)
+    # out = p.test(d)
+    # exit(1)
+
+    d.minimize()
+    # p.print_(d)
