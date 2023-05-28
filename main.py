@@ -1,6 +1,3 @@
-import os
-
-
 class NKA:
     def __init__(self, filename):
         self.stats_count = 0
@@ -170,19 +167,15 @@ class DKA:
     def chk(self, chain):
         if set(chain).difference(set(self.alphabet)):
             return 0
-        stat = list(self.stats.keys())
-        substr = ""
-        i = 0
-        j = 0
-        while j < len(chain):
-            symb = stat[i]
-            substr += chain[j]
-            cur_stat = self.stats.get(symb)[chain[j]][1:]
-            if cur_stat != substr[-len(cur_stat):]:
-                return 0
-            if symb != self.stats.get(symb)[chain[j]]:
-                i += 1
-            j += 1
+
+        k = list(self.stats.keys())
+        cur_stat = self.start
+
+        for symb in chain:
+            cur_stat = self.stats[cur_stat][symb]
+
+        if cur_stat not in self.finite_states:
+            return 0
         return 1
 
 
@@ -230,6 +223,21 @@ def print_in_file(ka, filename="output.txt"):
         file.write("\n")
 
 
+def test(ka):
+    number = 1023
+    length = number.bit_length()
+    results = []
+
+    while number >= 0:
+        chain = bin(number)[2:]
+        if len(chain) < length:
+            chain = str('0' * (length - len(chain))) + chain
+        results.append({chain: ka.chk(chain)})
+        number -= 1
+
+    return results
+
+
 if __name__ == '__main__':
     n = NKA("file2.txt")
     n.info()
@@ -238,3 +246,9 @@ if __name__ == '__main__':
     d.info()
     print_(d)
     print(d.chk("101001"))
+
+    out = test(d)
+    exit(1)
+
+# В качестве проверки нужно взять все цепочки
+# в алфавите длины не более 10 и применить к ним оба автомата.
