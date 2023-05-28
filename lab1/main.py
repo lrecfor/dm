@@ -239,17 +239,13 @@ class DKA:
                             else:
                                 tbl.get(i)[j] = "x"
                         stop_fl = 0
-        p.print_tbl(tbl)
 
-        # temp_stats = self.stats.copy()
-        # self.stats = {}
         new_stats = []
-
         for i in tbl:
             for j in tbl:
                 if tbl.get(i)[j] == 'o' or tbl.get(i)[j] == 'o':
                     new_stats.append([j, i])
-        print(new_stats)
+
         n_st = list(tbl.keys())
         for i in range(0, len(n_st)):
             for j in new_stats:
@@ -257,7 +253,21 @@ class DKA:
                     n_st[i] = set(n_st[i]).union(set(j))
             n_st[i] = ", ".join(sorted(n_st[i]))
         n_st = list(set(n_st))
-        print(n_st)
+
+        temp_stats = self.stats.copy()
+        self.stats = {}
+        for i in n_st:
+            nst_stat = temp_stats.get(i[0])
+            for k in self.alphabet:
+                n_val = nst_stat[k]
+                for st in n_st:
+                    if n_val in st:
+                        n_val = st
+                        break
+                if i in self.stats:
+                    self.stats[i] |= ({k: n_val})
+                else:
+                    self.stats[i] = ({k: n_val})
 
 
 if __name__ == '__main__':
@@ -265,7 +275,7 @@ if __name__ == '__main__':
     n.info()
     # p.print_in_file(n.to_dka())
 
-    d = DKA("lab1/dka3.txt")
+    d = DKA("lab1/dka4.txt")
     d.info()
     p.print_(d)
 
@@ -277,4 +287,4 @@ if __name__ == '__main__':
     # exit(1)
 
     d.minimize()
-    # p.print_(d)
+    p.print_(d)
