@@ -1,4 +1,5 @@
 import print as p
+import copy
 
 
 class NKA:
@@ -58,6 +59,8 @@ class NKA:
 
     def chk(self, chain_):
         def chk_(chain, indx=0, cur_stat=self.start):
+            e_close = None
+
             if self.e_nka:
                 e_close = self.e_closure()
 
@@ -98,29 +101,21 @@ class NKA:
     def e_closure(self):
         e_close = {}
 
-        graph = {
-            'A': ['B', 'C'],
-            'B': ['D', 'E'],
-            'C': ['F'],
-            'D': [],
-            'E': ['F'],
-            'F': []
-        }
-        visited = []  # List to keep track of visited nodes.
-        queue = []  # Initialize a queue
-
-        def bfs(visited, graph, node):
+        def bfs(graph, node):
+            visited = []
+            queue = []
             visited.append(node)
             queue.append(node)
             while queue:
                 s = queue.pop(0)
-                for neighbour in graph[s]:
+                for neighbour in graph[s]["e"]:
                     if neighbour not in visited:
                         visited.append(neighbour)
                         queue.append(neighbour)
+            return list(sorted(visited))
 
-        # Driver Code
-        bfs(visited, self.stats, 1)
+        for stat in self.stats:
+            e_close[stat] = bfs(self.stats, stat)
 
         return e_close
 
@@ -173,6 +168,131 @@ class NKA:
         res_DKA.finite_states = Td
 
         return res_DKA
+
+    def plus(self, R, T):
+        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1),
+                                                              "Q" + str(self.stats_count + 2)]}
+
+        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 3)]}
+        self.stats["Q" + str(self.stats_count + 2)] = {T: ["Q" + str(self.stats_count + 4)]}
+
+        self.stats["Q" + str(self.stats_count + 3)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
+        self.stats["Q" + str(self.stats_count + 4)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
+
+        self.stats_count += 5
+
+    def mul(self, R, T):
+        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
+        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 2)]}
+        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
+        self.stats["Q" + str(self.stats_count + 3)] = {T: ["Q" + str(self.stats_count + 4)]}
+        self.stats["Q" + str(self.stats_count + 4)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
+
+        self.stats_count += 5
+
+    def iter(self, R):
+        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
+        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 2)]}
+        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
+
+        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
+        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
+
+        self.stats_count += 3
+
+    def fr_rv(self, rv, start_stat, end_start):
+        i = 0
+        while i < len(rv):
+            if rv[i] == '(':
+                start_stat = self.stats_count
+                substring = get_substring(rv, i + 1)
+                self.solve_bracket(substring)
+
+                # states["S" + str(next_state)].update({"ε": "S" + str(prev)})
+                # update the states indices
+                # next_state = end
+                # start_state = next_state
+                # prev_state = prev
+                # continue looping over the regex after that bracket
+                i = i + len(substring) + 2
+                end_start = self.stats_count
+
+            elif rv[i] == '|' or rv[i] == '+':
+                # OrSolver here takes i+1 as an argument for the index parameter
+                # Where the '+' '|' represents the current index (i).
+                # 'i' represents the index that we will continue working from
+                # it takes the regex starting from the element after the '+' operation
+                # and operates on i
+
+                i = self.solve_or(i + 1, rv[i + 1:])
+                self.plus("1", "0")
+
+                # i, prev, start, end = self.OrSolver(
+                #     i + 1, rv[i + 1:], states, next_state)
+                # create new 2 states to connect the oring branches
+                # states.update({"S" + str(end + 1): {"terminalState": False,
+                #                                     "     ε     ": "S" + str(prev_start),
+                #                                     "      ε       ": "S" + str(prev)}})
+                # states.update({"S" + str(end + 2): {"terminalState": False}})
+                # states["S" + str(end)].update({"ε": "S" + str(end + 2)})
+                # states["S" + str(next_state)].update({"ε": "S" + str(end + 2)})
+                # update the state indices
+                # prev_state = end + 1
+                # next_state = end + 2
+                # start_state = next_state
+                # prev_start = end + 1
+
+            elif rv[i] == '*':
+                self.iter(rv[i + 1])
+                # next_state, start_state, prev_state, prev_start = self.CreateState(
+                #    rv, i, next_state, start_state, prev_state, prev_start, states)
+                i += 1
+            else:
+                i += 1
+
+    def solve_bracket(self, substring):
+        self.fr_rv(substring)
+
+    def solve_or(self, index, regex):
+        self.fr_rv(regex)
+        return index + len(regex)
+
+
+def get_substring(regex, index):
+    startingBrackets = 1
+    closingBrackets = 0
+    substring = ""
+    regex = regex[index:]
+
+    for j in range(len(regex)):
+        if regex[j] == "(":
+            startingBrackets += 1
+        elif regex[j] == ")":
+            closingBrackets += 1
+        if startingBrackets == closingBrackets:
+            break
+        substring += regex[j]
+    return substring
+
+
+def pars_str(x):
+    res = []
+    for i in range(len(x) - 1):
+        res.insert(len(res), x[i])
+        if ord(x[i]) and ord(x[i + 1]):
+            res.insert(len(res), '.')
+        elif x[i] == ')' and x[i + 1] == '(':
+            res.insert(len(res), '.')
+        elif ord(x[i + 1]) and x[i] == ')':
+            res.insert(len(res), '.')
+        elif x[i + 1] == '(' and ord(x[i]):
+            res.insert(len(res), '.')
+        elif x[i] == '*' and (ord(x[i + 1] or x[i + 1] == '(')):
+            res.insert(len(res), '.')
+    check = x[len(x) - 1]
+    if check != res[len(res) - 1]:
+        res += check
+    return ''.join(res)
 
 
 class DKA:
@@ -305,10 +425,101 @@ class DKA:
 
         chg_stats()
 
+    def _to_regex_(self):
+        for stat in self.stats.keys():
+            if stat != self.start and stat not in self.finite_states:
+                del_stat = stat
+                stat_from = set()
+                stat_to = set()
+                for _ in self.alphabet:
+                    if self.stats[del_stat][_] == del_stat:
+                        stat_from.add((self.stats[del_stat][_], _, "="))
+                    elif list(self.stats.keys()).index(del_stat) < \
+                            list(self.stats.keys()).index(self.stats[del_stat][_]):
+                        stat_from.add((self.stats[del_stat][_], _, "->"))
+                    else:
+                        stat_from.add((self.stats[del_stat][_], _, "<-"))
+                for stat2 in self.stats.keys():
+                    for _ in self.alphabet:
+                        if self.stats[stat2][_] == del_stat:
+                            stat_to.add((stat2, _))
+                # R + PS*Q
+                for _ in stat_to:
+                    self.stats[_[0]].pop(_[1])
+                    self.stats[_[0]] |= {}
+                    print()
+
+        self.stats.pop(stat)
+        P, Q, S, T = "", "", "", ""
+        return "(" + str(P) + "+" + str(Q) + str(S) + "*" + str(T) + ")*" + str(Q) + str(S) + "*"
+
+    def to_regex(self):
+        R = [["∅" for i in range(self.stats_count)] for i in range(self.stats_count)]
+        states = list(self.stats.keys())
+        for i in self.stats.keys():
+            R[states.index(i)][states.index(i)] = "e"
+            for j in self.alphabet:
+                if R[states.index(i)][states.index(self.stats[i][j])] != "∅":
+                    R[states.index(i)][states.index(self.stats[i][j])] += ("+" + j)
+                elif states.index(i) == states.index(self.stats[i][j]):
+                    R[states.index(i)][states.index(self.stats[i][j])] = j + "+e"
+                else:
+                    R[states.index(i)][states.index(self.stats[i][j])] = j
+                if len(R[states.index(i)][states.index(self.stats[i][j])]) > 1:
+                    if "(" in R[states.index(i)][states.index(self.stats[i][j])]:
+                        R[states.index(i)][states.index(self.stats[i][j])] = \
+                            R[states.index(i)][states.index(self.stats[i][j])].replace(")", "").replace("(", "")
+                    R[states.index(i)][states.index(self.stats[i][j])] = \
+                        "(" + R[states.index(i)][states.index(self.stats[i][j])] + ")"
+
+        def to_regex_(k):
+            # R[i][j] = R[i][j] + "+" + R[i][k+1] + "(" + R[k+1][k+1] + ")*" + R[k+1][j]
+            while k != self.stats_count - 1:
+                R_cpy = copy.deepcopy(R)
+                for i in self.stats.keys():
+                    for j in self.stats.keys():
+                        j = states.index(j)
+                        if "(" in R_cpy[k + 1][k + 1]:
+                            R[states.index(i)][j] = R_cpy[states.index(i)][j] + "+" + R_cpy[states.index(i)][k + 1] + \
+                                                    R_cpy[k + 1][k + 1] + "*" + R_cpy[k + 1][j]
+                        else:
+                            R[states.index(i)][j] = R_cpy[states.index(i)][j] + "+" + R_cpy[states.index(i)][k + 1] + \
+                                                    "(" + R_cpy[k + 1][k + 1] + ")*" + R_cpy[k + 1][j]
+                        # substr = ""
+                        # for _ in reversed(range(0, len(R[states.index(i)][j].split("*")[0]))):
+                        #    substr = R[states.index(i)][j].split("*")[0][_] + substr
+                        #    if R[states.index(i)][j].split("*")[0][_] == "(":
+                        #        break
+                        if "∅(" in R[states.index(i)][j]:
+                            R[states.index(i)][j] = R[states.index(i)][j][:R[states.index(i)][j].find("∅(")]
+                            R[states.index(i)][j] += "∅"
+                        if "*∅" in R[states.index(i)][j]:
+                            for indx in reversed(range(0, len(R[states.index(i)][j]))):
+                                if R[states.index(i)][j][indx] == "+" and \
+                                        R[states.index(i)][j][indx + 1] == "(":
+                                    R[states.index(i)][j] = R[states.index(i)][j][:indx]
+                        if "+∅+" in R[states.index(i)][j]:
+                            R[states.index(i)][j] = R[states.index(i)][j].replace("+∅+", "")
+                        if "∅+" in R[states.index(i)][j]:
+                            R[states.index(i)][j] = R[states.index(i)][j].replace("∅+", "")
+                        if "+∅" in R[states.index(i)][j]:
+                            R[states.index(i)][j] = R[states.index(i)][j].replace("+∅", "")
+                        print()
+
+                k += 1
+
+        to_regex_(-1)
+        print(R)
+
 
 if __name__ == '__main__':
-    n = NKA()
+    n = NKA("lab1/file5.txt")
     n.info()
 
-    d = DKA()
+    d = DKA("lab1/dka_2.txt")
     d.info()
+
+    f = open("lab1/rv1.txt", "r")
+    # n.fr_rv(f.readline().replace(" ", ""))
+
+    print(d.to_regex())

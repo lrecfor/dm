@@ -6,25 +6,3 @@ c = {e: [d]}
 d = {e: []}
 a
 [c]
-
-
-print("nka to dka: ")
-    # p.print_in_file(n.to_dka())
-    d_test = n.to_dka()
-    p.print_in_file(d_test)
-
-    # print("checking chains: ")
-    # print("DKA(): ", d.chk("101001"))
-    # print("DKA(): ", d_test.chk("0100100"))
-    print("NKA(): ", n.chk("1010001"))
-
-    out1 = p.test(d_test)
-    out2 = p.test(n)
-    print("checking chains: ", out1 == out2)
-
-    d_bef = d
-    d.minimize()
-    p.print_(d)
-    out1 = p.test(d_bef)
-    out2 = p.test(d)
-    print("checking chains (minimize()): ", out1 == out2)
