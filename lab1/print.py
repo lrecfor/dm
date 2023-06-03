@@ -43,7 +43,7 @@ def print_in_file(ka, filename="lab1/output.txt"):
 
 
 def test(ka):
-    number = 1023
+    number = 100
     length = number.bit_length()
     results = []
 

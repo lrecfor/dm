@@ -2,7 +2,7 @@ import print as p
 
 
 class NKA:
-    def __init__(self, filename):
+    def __init__(self, filename=None):
         self.stats_count = 0
         self.alphabet = list()
         self.stats = dict()
@@ -11,7 +11,7 @@ class NKA:
         self.e_nka = False
         self.cur_stat = "x"
 
-        self.__shiza = []
+        self.__returns = []
 
         if not filename:
             return
@@ -29,9 +29,9 @@ class NKA:
                 line = [_.replace("[", "").replace("]", "") for _ in line]
                 for k in self.alphabet:
                     if str(stat) in self.stats:
-                        self.stats[str(stat)] |= ({k: {}})
+                        self.stats[str(stat)] |= ({k: []})
                     else:
-                        self.stats[str(stat)] = ({k: {}})
+                        self.stats[str(stat)] = ({k: []})
                 for _ in line:
                     _ = _.split(":")
                     if _[0] not in self.alphabet:
@@ -57,55 +57,70 @@ class NKA:
         print("e-NKA: ", self.e_nka, end="\n\n")
 
     def chk(self, chain_):
-        def chk_(chain, indx=0, cur_stat='x'):
-            if set(chain).difference(set(self.alphabet)):
-                return 0
+        def chk_(chain, indx=0, cur_stat=self.start):
+            if self.e_nka:
+                e_close = self.e_closure()
 
             if indx == len(chain):
-                self.__shiza.append(0)
+                self.__returns.append(0)
                 return 0
 
-            cur_stat = self.stats[cur_stat][chain[indx]]
+            if self.e_nka == 1:
+                cur_stat = [", ".join(set(_).union(set(e_close[_]))) for _ in cur_stat]
+                cur_stat = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
+                cur_stat = ", ".join(set([self.stats[_][chain[indx]] for _ in cur_stat
+                                          if self.stats[_][chain[indx]] != ""]))
+            else:
+                cur_stat = self.stats[cur_stat][chain[indx]]
             if cur_stat == "":
-                self.__shiza.append(0)
+                self.__returns.append(0)
                 return 0
             if ", " in cur_stat:
                 cur_stat = cur_stat.replace(" ", "").split(",")
                 for _ in cur_stat:
                     chk_(chain, indx + 1, _)
                     if _ in self.finite_states and indx == len(chain) - 1:
-                        self.__shiza.append(1)
+                        self.__returns.append(1)
                         return 1
             else:
                 chk_(chain, indx + 1, cur_stat)
                 if cur_stat in self.finite_states and indx == len(chain) - 1:
-                    self.__shiza.append(1)
+                    self.__returns.append(1)
                     return 1
 
         chk_(chain_)
-        if 1 in self.__shiza:
+        if 1 in self.__returns:
+            self.__returns = []
             return 1
+        self.__returns = []
         return 0
 
     def e_closure(self):
         e_close = {}
 
-        for q1, v1 in self.stats.items():
-            lst = []
-            for _ in v1.items():
-                lst += self.stats.get(q1)["e"].replace(" ", "").split(",")
-            e_close[q1] = list(set(lst + [q1]))
+        graph = {
+            'A': ['B', 'C'],
+            'B': ['D', 'E'],
+            'C': ['F'],
+            'D': [],
+            'E': ['F'],
+            'F': []
+        }
+        visited = []  # List to keep track of visited nodes.
+        queue = []  # Initialize a queue
 
-        for e_cl in reversed(self.stats.keys()):
-            if "" in e_close[e_cl]:
-                e_close[e_cl].remove("")
-            for s in e_close[e_cl]:
-                if s != e_cl:
-                    lst = e_close.get(s)
-                    if "" in lst:
-                        lst.remove("")
-                    if lst is not None:
-                        e_close[e_cl] = sorted(list(set(lst + e_close[e_cl])))
+        def bfs(visited, graph, node):
+            visited.append(node)
+            queue.append(node)
+            while queue:
+                s = queue.pop(0)
+                for neighbour in graph[s]:
+                    if neighbour not in visited:
+                        visited.append(neighbour)
+                        queue.append(neighbour)
+
+        # Driver Code
+        bfs(visited, self.stats, 1)
 
         return e_close
 
@@ -145,7 +160,13 @@ class NKA:
         for qd in Qd:
             Td += [qd for s in self.finite_states if s in qd]
 
-        res_DKA.start = self.start
+        if self.start not in Dd:
+            for _ in Dd.keys():
+                if self.start in list(_):
+                    res_DKA.start = _
+                    break
+        else:
+            res_DKA.start = self.start
         res_DKA.alphabet = self.alphabet
         res_DKA.stats = Dd
         res_DKA.stats_count = self.stats_count
@@ -202,9 +223,6 @@ class DKA:
         print("Finite stats: ", self.finite_states, end="\n\n")
 
     def chk(self, chain):
-        if set(chain).difference(set(self.alphabet)):
-            return 0
-
         cur_stat = self.start
 
         for symb in chain:
@@ -241,6 +259,8 @@ class DKA:
                                 tbl.get(i)[j] = "x"
                         stop_fl = 0
 
+        # p.print_tbl(tbl)
+
         def chg_stats():
             new_stats = []
             for i in tbl:
@@ -270,25 +290,25 @@ class DKA:
                         self.stats[i] |= ({k: n_val})
                     else:
                         self.stats[i] = ({k: n_val})
+            if self.start not in self.stats:
+                for _ in self.stats.keys():
+                    if self.start in list(_):
+                        self.start = _
+                        break
+
+            new_fin_stats = []
+            for _ in self.stats.keys():
+                for f in self.finite_states:
+                    if f in list(_):
+                        new_fin_stats.append(_)
+            self.finite_states = new_fin_stats
 
         chg_stats()
 
 
 if __name__ == '__main__':
-    n = NKA("lab1/nka1.txt")
+    n = NKA()
     n.info()
-    # p.print_in_file(n.to_dka())
 
-    d = DKA("lab1/dka4.txt")
+    d = DKA()
     d.info()
-    p.print_(d)
-
-    # print("checking chains: ")
-    # print("DKA(): ", d.chk("101001"))
-    # print("NKA(): ", n.chk("0100100"))
-
-    # out = p.test(d)
-    # exit(1)
-
-    d.minimize()
-    p.print_(d)
