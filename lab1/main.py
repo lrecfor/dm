@@ -432,7 +432,7 @@ class DKA:
                 del_stat = stat
                 stat_from = set()
                 stat_to = set()
-                for _ in self.alphabet:
+                for _ in list(self.stats[del_stat].keys()):
                     if self.stats[del_stat][_] == del_stat:
                         stat_from.add((self.stats[del_stat][_], _, "="))
                     elif list(self.stats.keys()).index(del_stat) < \
@@ -473,57 +473,74 @@ class DKA:
                 #             self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(st_to[0])])
                 #         except ValueError:
                 #             continue
-
                 for _ in sorted(list(stat_to), key=lambda x: x[0]):
                     tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
+                    tmp_del = list(list(self.stats.values())[list(self.stats.keys()).index(del_stat)].values())
                     in_ = ""
                     if _[0] is self.start and _[0] in ''.join([''.join(__) for __ in list(stat_from)]):
                         if _[0] in tmp:
                             in_ = list(self.stats[_[0]].keys())[tmp.index(_[0])] + "+"
                     to_ = ""
                     st_del_stat = ""
-                    for __ in sorted(list(stat_to), key=lambda x: x[0]):
-                        if __ != _:
-                            try:
-                                if list(self.stats[_[0]].keys())[tmp.index(__[0])] != "":
-                                    continue
-                            except ValueError:
-                                if __ != _:
-                                    to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
+                    if _[0] == del_stat:
+                        for z in sorted(list(stat_to), key=lambda x: x[0]):
+                            if z[0] != _[0]:
+                                t = list(set(list(self.stats[z[0]].values())).intersection(
+                                        (list(self.stats[_[0]].values()))).difference(set(_[0])))
+                                if sorted(list(stat_to), key=lambda x: x[0]).index(z) < \
+                                        sorted(list(stat_to), key=lambda x: x[0]).index(_) and len(t) != 0:
+                                    t_ = list(list(self.stats.values())[list(self.stats.keys()).index(z[0])].values())
+                                    self.stats[z[0]] |= {list(self.stats[z[0]].keys())[t_.index(''.join(t))] +
+                                                         _[1] + "*": ''.join(t)}
+                                    self.stats[z[0]].pop(list(self.stats[z[0]].keys())[t_.index(''.join(t))])
+                                else:
+                                    t_ = list(list(self.stats.values())[list(self.stats.keys()).index(z[0])].values())
+                                    self.stats[z[0]] |= {list(self.stats[z[0]].keys())[t_.index(_[0])] + _[1]
+                                                         + "*": _[0]}
+                                    self.stats[z[0]].pop(list(self.stats[z[0]].keys())[t_.index(_[0])])
+                    else:
+                        for __ in sorted(list(stat_to), key=lambda x: x[0]):
+                            if __ != _:
                                 try:
-                                    st_del_stat = list(self.stats[del_stat].keys())[tmp.index(_[0])]
+                                    if list(self.stats[_[0]].keys())[tmp.index(__[0])] != "":
+                                        continue
                                 except ValueError:
-                                    st_del_stat = ""
-                    if in_ or st_del_stat or to_:
-                        self.stats[_[0]] |= {in_ + st_del_stat + to_: _[0]}
-                        self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
-                    for __ in sorted(list(stat_from), key=lambda x: x[0]):
-                        if __[2] == "->":
-                            to_ = ""
-                            to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
-                            st_del_stat = ""
-                            st_del_stat += __[1]
-                            self.stats[_[0]] |= {st_del_stat + to_: __[0]}
-                            try:
-                                self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(__[0])])
-                            except ValueError:
-                                continue
-                        if __[2] == "<-":
-                            st_del_stat = ""
-                            st_del_stat += __[1]
-                            for st in stat_to:
-                                if st[0] != _[0]:
-                                    if list(self.stats[st[0]].keys())[tmp.index(del_stat)] != "":
-                                        try:
-                                            st_del_stat += "+" + list(self.stats[st[0]].keys())[tmp.index(del_stat)] + \
-                                                           list(self.stats[del_stat].keys())[tmp.index(_[0])]
-                                        except ValueError:
-                                            continue
-                                        try:
-                                            self.stats[st[0]].pop(list(self.stats[st[0]].keys())[tmp.index(_[0])])
-                                        except ValueError:
-                                            pass
-                                        self.stats[st[0]] |= {st_del_stat: __[0]}
+                                    if __ != _:
+                                        to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
+                                    try:
+                                        st_del_stat = list(self.stats[del_stat].keys())[tmp_del.index(_[0])]
+                                    except ValueError:
+                                        st_del_stat = ""
+                        if in_ or st_del_stat or to_ and _[0] in tmp_del:
+                            self.stats[_[0]] |= {in_ + st_del_stat + to_: _[0]}
+                            self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
+                        for __ in sorted(list(stat_from), key=lambda x: x[0]):
+                            if __[2] == "->":
+                                to_ = ""
+                                to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
+                                st_del_stat = ""
+                                st_del_stat += __[1]
+                                self.stats[_[0]] |= {st_del_stat + to_: __[0]}
+                                try:
+                                    self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(__[0])])
+                                except ValueError:
+                                    continue
+                            if __[2] == "<-":
+                                st_del_stat = ""
+                                st_del_stat += __[1]
+                                for st in stat_to:
+                                    if st[0] != _[0]:
+                                        if list(self.stats[st[0]].keys())[tmp.index(del_stat)] != "":
+                                            try:
+                                                st_del_stat += "+" + list(self.stats[st[0]].keys())[tmp.index(del_stat)] + \
+                                                               list(self.stats[del_stat].keys())[tmp.index(_[0])]
+                                            except ValueError:
+                                                continue
+                                            try:
+                                                self.stats[st[0]].pop(list(self.stats[st[0]].keys())[tmp.index(_[0])])
+                                            except ValueError:
+                                                pass
+                                            self.stats[st[0]] |= {st_del_stat: __[0]}
                 self.stats.pop(del_stat)
                 for _ in self.stats.keys():
                     try:
@@ -532,6 +549,26 @@ class DKA:
                     except ValueError:
                         continue
         P, Q, S, T = "", "", "", ""
+        try:
+            P = list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
+                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])]
+        except ValueError:
+            pass
+        try:
+            Q = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
+                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[1])]) + ")"
+        except ValueError:
+            pass
+        try:
+            S = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
+                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[1])]) + ")"
+        except ValueError:
+            pass
+        try:
+            T = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
+                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[0])]) + ")"
+        except ValueError:
+            pass
         return "(" + str(P) + "+" + str(Q) + str(S) + "*" + str(T) + ")*" + str(Q) + str(S) + "*"
 
     def to_regex(self):
@@ -597,7 +634,7 @@ if __name__ == '__main__':
     n = NKA("lab1/file5.txt")
     n.info()
 
-    d = DKA("lab1/dka_1.txt")
+    d = DKA("lab1/dka_3.txt")
     d.info()
 
     f = open("lab1/rv1.txt", "r")
