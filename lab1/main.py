@@ -425,8 +425,9 @@ class DKA:
 
         chg_stats()
 
-    def _to_regex_(self):
-        for stat in self.stats.keys():
+    def to_regex_(self):
+        keys_cpy = copy.deepcopy(list(self.stats.keys()))
+        for stat in keys_cpy:
             if stat != self.start and stat not in self.finite_states:
                 del_stat = stat
                 stat_from = set()
@@ -440,16 +441,96 @@ class DKA:
                     else:
                         stat_from.add((self.stats[del_stat][_], _, "<-"))
                 for stat2 in self.stats.keys():
-                    for _ in self.alphabet:
+                    keys_ = list(list(self.stats.values())[list(self.stats.keys()).index(stat2)].keys())
+                    for _ in keys_:
                         if self.stats[stat2][_] == del_stat:
                             stat_to.add((stat2, _))
                 # R + PS*Q
-                for _ in stat_to:
-                    self.stats[_[0]].pop(_[1])
-                    self.stats[_[0]] |= {}
-                    print()
+                # for _ in list(stat_from):
+                #     if _[2] == "<-":
+                #         tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
+                #         in_ = ""
+                #         if _[0] is self.start:
+                #             if _[0] in tmp:
+                #                 in_ = list(self.stats[_[0]].keys())[tmp.index(_[0])] + "+"
+                #         to_ = ""
+                #         for __ in list(stat_to):
+                #             if __[0] != _[0]:
+                #                 to_ += __[1]
+                #         self.stats[_[0]] |= {in_ + _[1] + to_: _[0]}
+                #         self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
+                #     if _[2] == "->":
+                #         tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
+                #         to_ = ""
+                #         st_to = []
+                #         for __ in list(stat_to):
+                #             if __[0] != _[0] and list(self.stats.keys()).index(__[0]) < \
+                #                     list(self.stats.keys()).index(_[0]):
+                #                 st_to.append(__[0])
+                #                 to_ += __[1]
+                #         self.stats[_[0]] |= {_[1] + to_: st_to[0]}
+                #         try:
+                #             self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(st_to[0])])
+                #         except ValueError:
+                #             continue
 
-        self.stats.pop(stat)
+                for _ in sorted(list(stat_to), key=lambda x: x[0]):
+                    tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
+                    in_ = ""
+                    if _[0] is self.start and _[0] in ''.join([''.join(__) for __ in list(stat_from)]):
+                        if _[0] in tmp:
+                            in_ = list(self.stats[_[0]].keys())[tmp.index(_[0])] + "+"
+                    to_ = ""
+                    st_del_stat = ""
+                    for __ in sorted(list(stat_to), key=lambda x: x[0]):
+                        if __ != _:
+                            try:
+                                if list(self.stats[_[0]].keys())[tmp.index(__[0])] != "":
+                                    continue
+                            except ValueError:
+                                if __ != _:
+                                    to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
+                                try:
+                                    st_del_stat = list(self.stats[del_stat].keys())[tmp.index(_[0])]
+                                except ValueError:
+                                    st_del_stat = ""
+                    if in_ or st_del_stat or to_:
+                        self.stats[_[0]] |= {in_ + st_del_stat + to_: _[0]}
+                        self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
+                    for __ in sorted(list(stat_from), key=lambda x: x[0]):
+                        if __[2] == "->":
+                            to_ = ""
+                            to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
+                            st_del_stat = ""
+                            st_del_stat += __[1]
+                            self.stats[_[0]] |= {st_del_stat + to_: __[0]}
+                            try:
+                                self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(__[0])])
+                            except ValueError:
+                                continue
+                        if __[2] == "<-":
+                            st_del_stat = ""
+                            st_del_stat += __[1]
+                            for st in stat_to:
+                                if st[0] != _[0]:
+                                    if list(self.stats[st[0]].keys())[tmp.index(del_stat)] != "":
+                                        try:
+                                            st_del_stat += "+" + list(self.stats[st[0]].keys())[tmp.index(del_stat)] + \
+                                                           list(self.stats[del_stat].keys())[tmp.index(_[0])]
+                                        except ValueError:
+                                            continue
+                                        try:
+                                            self.stats[st[0]].pop(list(self.stats[st[0]].keys())[tmp.index(_[0])])
+                                        except ValueError:
+                                            pass
+                                        self.stats[st[0]] |= {st_del_stat: __[0]}
+                self.stats.pop(del_stat)
+                for _ in self.stats.keys():
+                    try:
+                        tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_)].values())
+                        self.stats[_].pop(list(self.stats[_[0]].keys())[tmp.index(del_stat)])
+                    except ValueError:
+                        continue
         P, Q, S, T = "", "", "", ""
         return "(" + str(P) + "+" + str(Q) + str(S) + "*" + str(T) + ")*" + str(Q) + str(S) + "*"
 
@@ -516,10 +597,10 @@ if __name__ == '__main__':
     n = NKA("lab1/file5.txt")
     n.info()
 
-    d = DKA("lab1/dka_2.txt")
+    d = DKA("lab1/dka_1.txt")
     d.info()
 
     f = open("lab1/rv1.txt", "r")
     # n.fr_rv(f.readline().replace(" ", ""))
 
-    print(d.to_regex())
+    print(d.to_regex_())
