@@ -1,4 +1,3 @@
-import print as p
 import copy
 
 
@@ -214,87 +213,105 @@ class DKA:
         return 1
 
     def to_reg(self):
-        keys_cpy = copy.deepcopy(list(self.stats.keys()))
-        for stat in keys_cpy:
-            if stat != self.start and stat not in self.finite_states:
-                del_stat = stat
-                stat_from = set()
-                stat_to = set()
-                for _ in list(self.stats[del_stat].keys()):
-                    if self.stats[del_stat][_] == del_stat:
-                        stat_from.add((self.stats[del_stat][_], _, "="))
-                    elif list(self.stats.keys()).index(del_stat) < \
-                            list(self.stats.keys()).index(self.stats[del_stat][_]):
-                        stat_from.add((self.stats[del_stat][_], _, "->"))
-                    else:
-                        stat_from.add((self.stats[del_stat][_], _, "<-"))
-                for stat2 in self.stats.keys():
-                    keys_ = list(list(self.stats.values())[list(self.stats.keys()).index(stat2)].keys())
-                    for _ in keys_:
-                        if self.stats[stat2][_] == del_stat:
-                            if list(self.stats.keys()).index(del_stat) > \
-                                    list(self.stats.keys()).index(stat2):
-                                stat_to.add((stat2, _, "->"))
+        def to_reg_():
+            keys_cpy = sorted(copy.deepcopy(list(self.stats.keys())), reverse=True)
+            for stat in keys_cpy:
+                if stat != self.start and stat not in self.finite_states:
+                    del_stat = stat
+                    stats_lst = {}
+                    stats_to = []
+                    stats_from = []
+                    for s in self.stats:
+                        tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(s)].values())
+                        if s == del_stat:
+                            vals = list(self.stats[del_stat].values())
+                            stats_lst[(del_stat, vals[0])] = list(self.stats[s].keys())[tmp_s.index(vals[0])]
+                            stats_to += vals[0]
+                            for _ in vals.pop():
+                                stats_to += _
+                                stats_lst[(del_stat, _)] = list(self.stats[s].keys())[tmp_s.index(_)]
+                        if del_stat in self.stats[s].values():
+                            stats_from += s
+                            # stats_lst[(s, del_stat)] = list(self.stats[s].keys())[tmp_s.index(del_stat)]
+
+                    for s in stats_lst:
+                        if s == (del_stat, del_stat):
+                            continue
+                        for chg_st in stats_from:
+                            R, P, S, Q = "", "", "", ""
+                            if chg_st == del_stat:
+                                continue
+                            tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(chg_st)].values())
+                            if s[1] in self.stats[chg_st].values():
+                                R = list(self.stats[chg_st].keys())[tmp_s.index(s[1])] + "+"
+                                self.stats[chg_st].pop(list(self.stats[chg_st].keys())[tmp_s.index(s[1])])
+                                tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(chg_st)].values())
+                            if del_stat in self.stats[chg_st].values():
+                                Q = list(self.stats[chg_st].keys())[tmp_s.index(del_stat)]
+                            if (del_stat, del_stat) in stats_lst:
+                                S = stats_lst[(del_stat, del_stat)] + "*"
+                                s = (del_stat, ", ".join(list(set(self.stats[del_stat].values()).difference(
+                                    set(del_stat)))))
+                            P = stats_lst[(del_stat, s[1])]
+                            if R != "":
+                                self.stats[chg_st] |= {"(" + R + Q + S + P + ")": s[1]}
                             else:
-                                stat_to.add((stat2, _, "<-"))
+                                self.stats[chg_st] |= {R + Q + S + P: s[1]}
+                    self.stats.pop(del_stat)
+                    for _ in self.stats.keys():
+                        try:
+                            tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_)].values())
+                            self.stats[_].pop(list(self.stats[_].keys())[tmp.index(del_stat)])
+                        except ValueError:
+                            continue
 
-                # R, P, S, Q = "", "", "", ""
-                # from_ = []
-                # to_ = []
-                # for _ in sorted(list(stat_to), key=lambda x: x[0]):
-                #     if _[2] == "->":
-                #         P = _[1] + P
-                #         from_.append(_[0])
-                #     elif _[2] == "=":
-                #         S = _[1]
-                # for _ in sorted(list(stat_from), key=lambda x: x[0]):
-                #     if _[2] == "->":
-                #         Q = _[1] + Q
-                #         to_.append(_[0])
-                #     elif _[2] == "=":
-                #         S = _[1]
-                #
-                # if S != "":
-                #     S += "*"
-                # if R != "":
-                #     R += "+"
-                # self.stats[from_[0]] |= {to_[0]: R + P + S + Q}
-
+            P, Q, S, T = "", "", "", ""
+            try:
+                P = list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
+                    list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])] + "+"
+            except ValueError:
                 pass
+            try:
+                Q = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
+                    list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[1])]) + ")"
+            except ValueError:
+                pass
+            try:
+                S = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
+                    list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[1])]) + ")" + "*"
+            except ValueError:
+                pass
+            try:
+                T = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
+                    list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[0])]) + ")"
+            except ValueError:
+                pass
+            return "(" + str(P) + str(Q) + str(S) + str(T) + ")*" + str(Q) + str(S)
 
-                self.stats.pop(del_stat)
-                for _ in self.stats.keys():
-                    try:
-                        tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_)].values())
-                        self.stats[_].pop(list(self.stats[_].keys())[tmp.index(del_stat)])
-                    except ValueError:
-                        continue
-        P, Q, S, T = "", "", "", ""
-        try:
-            P = list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
-                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])]
-        except ValueError:
-            pass
-        try:
-            Q = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
-                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[1])]) + ")"
-        except ValueError:
-            pass
-        try:
-            S = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
-                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[1])]) + ")"
-        except ValueError:
-            pass
-        try:
-            T = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
-                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[0])]) + ")"
-        except ValueError:
-            pass
-        return "(" + str(P) + "+" + str(Q) + str(S) + "*" + str(T) + ")*" + str(Q) + str(S) + "*"
+        if len(self.finite_states) > 1:
+            stats = copy.deepcopy(self.stats)
+            finite_states = copy.deepcopy(list(self.finite_states))
+
+            to_reg_()
+            R_ = []
+            stats_cpy = copy.deepcopy(self.stats)
+            finite_states_cpy = sorted(copy.deepcopy(list(self.finite_states)), reverse=True)
+            self.stats = copy.deepcopy(stats_cpy)
+            for _ in finite_states_cpy:
+                self.finite_states.remove(_)
+                R_ += [to_reg_()]
+                self.finite_states = finite_states
+                self.stats = copy.deepcopy(stats_cpy)
+            self.stats = copy.deepcopy(stats)
+            return "+".join(R_)
+        else:
+            return to_reg_()
 
 
 if __name__ == '__main__':
-    d = DKA("")
+    n = NKA()
+
+    d = DKA("dka_2.txt")
     d.info()
 
     print(d.to_reg())
