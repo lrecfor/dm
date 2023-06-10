@@ -10,7 +10,7 @@ class NKA:
         self.start = None
         self.finite_states = list()
         self.e_nka = False
-        self.cur_stat = "x"
+        self.e_close = []
 
         self.__returns = []
 
@@ -47,7 +47,7 @@ class NKA:
         self.finite_states = lines[2 + self.stats_count + 1].strip("[]").split(",")
         if "e" in self.alphabet:
             self.e_nka = True
-            self.alphabet.remove("e")
+            self.e_close = self.e_closure()
 
     def info(self):
         print("Stats count: ", self.stats_count)
@@ -57,45 +57,44 @@ class NKA:
         print("Finite stats: ", self.finite_states)
         print("e-NKA: ", self.e_nka, end="\n\n")
 
-    def chk(self, chain_):
-        def chk_(chain, indx=0, cur_stat=self.start):
-            e_close = None
+    def chk(self, chain):
+        # если в строке есть символы, отличные от алфавита возвращаем False
+        if len(list(set(chain).difference(set(self.alphabet)))) != 0 and \
+                (self.e_nka and list(set(chain).difference(set(self.alphabet))) != "e"):
+            return 0
+        # текущее состояние равно начальному
+        cur_stat = [self.start]
 
+        # цикл по каждому символу из строки
+        for symb in chain:
+            # если это е-нка, то объединяем состояния с е-замыканием до перехода,
+            # чтобы исключить переход в пустое множество при наличии других состояний в е-замыкании текущего состояния
             if self.e_nka:
-                e_close = self.e_closure()
-
-            if indx == len(chain):
-                self.__returns.append(0)
-                return 0
-
-            if self.e_nka == 1:
-                cur_stat = [", ".join(set(_).union(set(e_close[_]))) for _ in cur_stat]
+                # если cur_stat это строка из нескольких состояний, преобразуем ее в список отдельных состояний
+                cur_stat_cpy = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
+                # для каждого состояния из cur_stat объединяем его с е-замыканием
+                cur_stat = [", ".join(set(_).union(set(self.e_close[_]))) for _ in cur_stat_cpy]
+                # если получили несколько состояний - преобразуем их в список состояний
                 cur_stat = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
-                cur_stat = ", ".join(set([self.stats[_][chain[indx]] for _ in cur_stat
-                                          if self.stats[_][chain[indx]] != ""]))
-            else:
-                cur_stat = self.stats[cur_stat][chain[indx]]
-            if cur_stat == "":
-                self.__returns.append(0)
+            # делаем переход
+            # если получили несколько состояний - преобразуем их в список состояний
+            cur_stat_cpy = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
+            # для каждого состояния находим переход
+            cur_stat = list(set([self.stats[_][symb] for _ in cur_stat_cpy if self.stats[_][symb] != ""]))
+            # если переход осуществлен в пустое множество возвращаем False
+            if len(cur_stat) == 0:
                 return 0
-            if ", " in cur_stat:
-                cur_stat = cur_stat.replace(" ", "").split(",")
-                for _ in cur_stat:
-                    chk_(chain, indx + 1, _)
-                    if _ in self.finite_states and indx == len(chain) - 1:
-                        self.__returns.append(1)
-                        return 1
-            else:
-                chk_(chain, indx + 1, cur_stat)
-                if cur_stat in self.finite_states and indx == len(chain) - 1:
-                    self.__returns.append(1)
-                    return 1
+            # если это е-нка объединяем состояния после перехода с е-замыканием
+            if self.e_nka:
+                cur_stat_cpy = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
+                cur_stat = [", ".join(set(_).union(set(self.e_close[_]))) for _ in cur_stat_cpy]
+                cur_stat = list(set((", ".join(cur_stat)).replace(" ", "").split(",")))
+                if len(cur_stat) == 0:
+                    return 0
 
-        chk_(chain_)
-        if 1 in self.__returns:
-            self.__returns = []
+        # если текущее состояние находится в числе конечных - возвращаем True
+        if len(list(set(self.finite_states) & set(cur_stat))) != 0:
             return 1
-        self.__returns = []
         return 0
 
     def e_closure(self):
@@ -121,40 +120,48 @@ class NKA:
 
     def to_dka(self):
         res_DKA = DKA()
-        P = [self.start]
-        Qd = [self.start]
-        Dd = {}
-        e_close = {}
+        P = [self.start]    # список состояний, по которому мы будем итерироваться
+        Qd = [self.start]   # список состояний дка
+        Dd = {}             # таблица переходов дка
 
+        # если это е-нка, объединяем начальное состояние с e-замыканием
         if self.e_nka:
-            e_close = self.e_closure()
-            P = [", ".join(e_close.get(P[0]))]
+            P = [", ".join(self.e_close.get(P[0]))]
 
+        # пока Р не пустое множество
         while P:
+            # выталкиваем из P очередное состояние
             pd = "".join(P.pop(0)).replace(" ", "").split(",")
-            for c in self.alphabet:
+            # проходим в цикле для каждого возможного для перехода состояния
+            for c in list(set(self.alphabet).difference(set("e"))):
                 qd = list()
                 for p_ in pd:
                     if not p_:
                         break
+                    # в qd накапливаем все возможные для перехода состояния
                     if self.stats.get(p_)[c] != "" and len(self.stats.get(p_)[c]) > 0:
                         qd += self.stats.get(p_)[c].replace(" ", "").split(",")
+                    # если это е-нка, то объединяем каждое состояние qd с е-замыканием
                     if self.e_nka and qd:
                         for q in set(qd):
-                            qd += e_close.get(q)
+                            qd += self.e_close.get(q)
+                # переводим список qd в строку состояний
                 qd = ", ".join(list(sorted(set(qd)))).strip()
+                # добавляем в таблицу переходов запись qd
                 if ", ".join(pd) in Dd:
                     Dd[", ".join(pd)] |= ({c: qd})
                 else:
                     Dd[", ".join(pd)] = {c: qd}
                 if qd not in Qd:
-                    P.append(qd)
-                    Qd.append(qd)
+                    P.append(qd)    # добавляем следующее состояние для вычисления в Р
+                    Qd.append(qd)   # добавляем в список состояний полученный qd
 
+        # находим финальные состояния Td из списка состояний Qd
         Td = []
-        for qd in Qd:
+        for qd in list(Dd.keys()):
             Td += [qd for s in self.finite_states if s in qd]
 
+        # изменяем начальное состояние в соответствие с построенным дка
         if self.start not in Dd:
             for _ in Dd.keys():
                 if self.start in list(_):
@@ -162,137 +169,12 @@ class NKA:
                     break
         else:
             res_DKA.start = self.start
-        res_DKA.alphabet = self.alphabet
-        res_DKA.stats = Dd
-        res_DKA.stats_count = self.stats_count
-        res_DKA.finite_states = Td
+        res_DKA.alphabet = list(set(self.alphabet).difference(set("e")))    # добавляем алфавит
+        res_DKA.stats = Dd                                                  # добавляем таблицу состояний
+        res_DKA.stats_count = self.stats_count                              # добавляем количество состояний
+        res_DKA.finite_states = Td                                          # добавляем список финальных состояний
 
         return res_DKA
-
-    def plus(self, R, T):
-        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1),
-                                                              "Q" + str(self.stats_count + 2)]}
-
-        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 3)]}
-        self.stats["Q" + str(self.stats_count + 2)] = {T: ["Q" + str(self.stats_count + 4)]}
-
-        self.stats["Q" + str(self.stats_count + 3)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
-        self.stats["Q" + str(self.stats_count + 4)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
-
-        self.stats_count += 5
-
-    def mul(self, R, T):
-        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
-        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 2)]}
-        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
-        self.stats["Q" + str(self.stats_count + 3)] = {T: ["Q" + str(self.stats_count + 4)]}
-        self.stats["Q" + str(self.stats_count + 4)] = {str("e"): ["Q" + str(self.stats_count + 5)]}
-
-        self.stats_count += 5
-
-    def iter(self, R):
-        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
-        self.stats["Q" + str(self.stats_count + 1)] = {R: ["Q" + str(self.stats_count + 2)]}
-        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
-
-        self.stats["Q" + str(self.stats_count)] = {str("e"): ["Q" + str(self.stats_count + 3)]}
-        self.stats["Q" + str(self.stats_count + 2)] = {str("e"): ["Q" + str(self.stats_count + 1)]}
-
-        self.stats_count += 3
-
-    def fr_rv(self, rv, start_stat, end_start):
-        i = 0
-        while i < len(rv):
-            if rv[i] == '(':
-                start_stat = self.stats_count
-                substring = get_substring(rv, i + 1)
-                self.solve_bracket(substring)
-
-                # states["S" + str(next_state)].update({"ε": "S" + str(prev)})
-                # update the states indices
-                # next_state = end
-                # start_state = next_state
-                # prev_state = prev
-                # continue looping over the regex after that bracket
-                i = i + len(substring) + 2
-                end_start = self.stats_count
-
-            elif rv[i] == '|' or rv[i] == '+':
-                # OrSolver here takes i+1 as an argument for the index parameter
-                # Where the '+' '|' represents the current index (i).
-                # 'i' represents the index that we will continue working from
-                # it takes the regex starting from the element after the '+' operation
-                # and operates on i
-
-                i = self.solve_or(i + 1, rv[i + 1:])
-                self.plus("1", "0")
-
-                # i, prev, start, end = self.OrSolver(
-                #     i + 1, rv[i + 1:], states, next_state)
-                # create new 2 states to connect the oring branches
-                # states.update({"S" + str(end + 1): {"terminalState": False,
-                #                                     "     ε     ": "S" + str(prev_start),
-                #                                     "      ε       ": "S" + str(prev)}})
-                # states.update({"S" + str(end + 2): {"terminalState": False}})
-                # states["S" + str(end)].update({"ε": "S" + str(end + 2)})
-                # states["S" + str(next_state)].update({"ε": "S" + str(end + 2)})
-                # update the state indices
-                # prev_state = end + 1
-                # next_state = end + 2
-                # start_state = next_state
-                # prev_start = end + 1
-
-            elif rv[i] == '*':
-                self.iter(rv[i + 1])
-                # next_state, start_state, prev_state, prev_start = self.CreateState(
-                #    rv, i, next_state, start_state, prev_state, prev_start, states)
-                i += 1
-            else:
-                i += 1
-
-    def solve_bracket(self, substring):
-        self.fr_rv(substring)
-
-    def solve_or(self, index, regex):
-        self.fr_rv(regex)
-        return index + len(regex)
-
-
-def get_substring(regex, index):
-    startingBrackets = 1
-    closingBrackets = 0
-    substring = ""
-    regex = regex[index:]
-
-    for j in range(len(regex)):
-        if regex[j] == "(":
-            startingBrackets += 1
-        elif regex[j] == ")":
-            closingBrackets += 1
-        if startingBrackets == closingBrackets:
-            break
-        substring += regex[j]
-    return substring
-
-
-def pars_str(x):
-    res = []
-    for i in range(len(x) - 1):
-        res.insert(len(res), x[i])
-        if ord(x[i]) and ord(x[i + 1]):
-            res.insert(len(res), '.')
-        elif x[i] == ')' and x[i + 1] == '(':
-            res.insert(len(res), '.')
-        elif ord(x[i + 1]) and x[i] == ')':
-            res.insert(len(res), '.')
-        elif x[i + 1] == '(' and ord(x[i]):
-            res.insert(len(res), '.')
-        elif x[i] == '*' and (ord(x[i + 1] or x[i + 1] == '(')):
-            res.insert(len(res), '.')
-    check = x[len(x) - 1]
-    if check != res[len(res) - 1]:
-        res += check
-    return ''.join(res)
 
 
 class DKA:
@@ -346,7 +228,10 @@ class DKA:
         cur_stat = self.start
 
         for symb in chain:
-            cur_stat = self.stats[cur_stat][symb]
+            try:
+                cur_stat = self.stats[cur_stat][symb]
+            except KeyError:
+                return 0
 
         if cur_stat not in self.finite_states:
             return 0
@@ -425,219 +310,27 @@ class DKA:
 
         chg_stats()
 
-    def to_regex_(self):
-        keys_cpy = copy.deepcopy(list(self.stats.keys()))
-        for stat in keys_cpy:
-            if stat != self.start and stat not in self.finite_states:
-                del_stat = stat
-                stat_from = set()
-                stat_to = set()
-                for _ in list(self.stats[del_stat].keys()):
-                    if self.stats[del_stat][_] == del_stat:
-                        stat_from.add((self.stats[del_stat][_], _, "="))
-                    elif list(self.stats.keys()).index(del_stat) < \
-                            list(self.stats.keys()).index(self.stats[del_stat][_]):
-                        stat_from.add((self.stats[del_stat][_], _, "->"))
-                    else:
-                        stat_from.add((self.stats[del_stat][_], _, "<-"))
-                for stat2 in self.stats.keys():
-                    keys_ = list(list(self.stats.values())[list(self.stats.keys()).index(stat2)].keys())
-                    for _ in keys_:
-                        if self.stats[stat2][_] == del_stat:
-                            stat_to.add((stat2, _))
-                # R + PS*Q
-                # for _ in list(stat_from):
-                #     if _[2] == "<-":
-                #         tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
-                #         in_ = ""
-                #         if _[0] is self.start:
-                #             if _[0] in tmp:
-                #                 in_ = list(self.stats[_[0]].keys())[tmp.index(_[0])] + "+"
-                #         to_ = ""
-                #         for __ in list(stat_to):
-                #             if __[0] != _[0]:
-                #                 to_ += __[1]
-                #         self.stats[_[0]] |= {in_ + _[1] + to_: _[0]}
-                #         self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
-                #     if _[2] == "->":
-                #         tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
-                #         to_ = ""
-                #         st_to = []
-                #         for __ in list(stat_to):
-                #             if __[0] != _[0] and list(self.stats.keys()).index(__[0]) < \
-                #                     list(self.stats.keys()).index(_[0]):
-                #                 st_to.append(__[0])
-                #                 to_ += __[1]
-                #         self.stats[_[0]] |= {_[1] + to_: st_to[0]}
-                #         try:
-                #             self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(st_to[0])])
-                #         except ValueError:
-                #             continue
-                for _ in sorted(list(stat_to), key=lambda x: x[0]):
-                    tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_[0])].values())
-                    tmp_del = list(list(self.stats.values())[list(self.stats.keys()).index(del_stat)].values())
-                    in_ = ""
-                    if _[0] is self.start and _[0] in ''.join([''.join(__) for __ in list(stat_from)]):
-                        if _[0] in tmp:
-                            in_ = list(self.stats[_[0]].keys())[tmp.index(_[0])] + "+"
-                    to_ = ""
-                    st_del_stat = ""
-                    if _[0] == del_stat:
-                        for z in sorted(list(stat_to), key=lambda x: x[0]):
-                            if z[0] != _[0]:
-                                t = list(set(list(self.stats[z[0]].values())).intersection(
-                                        (list(self.stats[_[0]].values()))).difference(set(_[0])))
-                                if sorted(list(stat_to), key=lambda x: x[0]).index(z) < \
-                                        sorted(list(stat_to), key=lambda x: x[0]).index(_) and len(t) != 0:
-                                    t_ = list(list(self.stats.values())[list(self.stats.keys()).index(z[0])].values())
-                                    self.stats[z[0]] |= {list(self.stats[z[0]].keys())[t_.index(''.join(t))] +
-                                                         _[1] + "*": ''.join(t)}
-                                    self.stats[z[0]].pop(list(self.stats[z[0]].keys())[t_.index(''.join(t))])
-                                else:
-                                    t_ = list(list(self.stats.values())[list(self.stats.keys()).index(z[0])].values())
-                                    self.stats[z[0]] |= {list(self.stats[z[0]].keys())[t_.index(_[0])] + _[1]
-                                                         + "*": _[0]}
-                                    self.stats[z[0]].pop(list(self.stats[z[0]].keys())[t_.index(_[0])])
-                    else:
-                        for __ in sorted(list(stat_to), key=lambda x: x[0]):
-                            if __ != _:
-                                try:
-                                    if list(self.stats[_[0]].keys())[tmp.index(__[0])] != "":
-                                        continue
-                                except ValueError:
-                                    if __ != _:
-                                        to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
-                                    try:
-                                        st_del_stat = list(self.stats[del_stat].keys())[tmp_del.index(_[0])]
-                                    except ValueError:
-                                        st_del_stat = ""
-                        if in_ or st_del_stat or to_ and _[0] in tmp_del:
-                            self.stats[_[0]] |= {in_ + st_del_stat + to_: _[0]}
-                            self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(_[0])])
-                        for __ in sorted(list(stat_from), key=lambda x: x[0]):
-                            if __[2] == "->":
-                                to_ = ""
-                                to_ += list(self.stats[_[0]].keys())[tmp.index(del_stat)]
-                                st_del_stat = ""
-                                st_del_stat += __[1]
-                                self.stats[_[0]] |= {st_del_stat + to_: __[0]}
-                                try:
-                                    self.stats[_[0]].pop(list(self.stats[_[0]].keys())[tmp.index(__[0])])
-                                except ValueError:
-                                    continue
-                            if __[2] == "<-":
-                                st_del_stat = ""
-                                st_del_stat += __[1]
-                                for st in stat_to:
-                                    if st[0] != _[0]:
-                                        if list(self.stats[st[0]].keys())[tmp.index(del_stat)] != "":
-                                            try:
-                                                st_del_stat += "+" + list(self.stats[st[0]].keys())[tmp.index(del_stat)] + \
-                                                               list(self.stats[del_stat].keys())[tmp.index(_[0])]
-                                            except ValueError:
-                                                continue
-                                            try:
-                                                self.stats[st[0]].pop(list(self.stats[st[0]].keys())[tmp.index(_[0])])
-                                            except ValueError:
-                                                pass
-                                            self.stats[st[0]] |= {st_del_stat: __[0]}
-                self.stats.pop(del_stat)
-                for _ in self.stats.keys():
-                    try:
-                        tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_)].values())
-                        self.stats[_].pop(list(self.stats[_[0]].keys())[tmp.index(del_stat)])
-                    except ValueError:
-                        continue
-        P, Q, S, T = "", "", "", ""
-        try:
-            P = list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
-                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])]
-        except ValueError:
-            pass
-        try:
-            Q = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
-                list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[1])]) + ")"
-        except ValueError:
-            pass
-        try:
-            S = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
-                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[1])]) + ")"
-        except ValueError:
-            pass
-        try:
-            T = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
-                list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[0])]) + ")"
-        except ValueError:
-            pass
-        return "(" + str(P) + "+" + str(Q) + str(S) + "*" + str(T) + ")*" + str(Q) + str(S) + "*"
-
-    def to_regex(self):
-        R = [["∅" for i in range(self.stats_count)] for i in range(self.stats_count)]
-        states = list(self.stats.keys())
-        for i in self.stats.keys():
-            R[states.index(i)][states.index(i)] = "e"
-            for j in self.alphabet:
-                if R[states.index(i)][states.index(self.stats[i][j])] != "∅":
-                    R[states.index(i)][states.index(self.stats[i][j])] += ("+" + j)
-                elif states.index(i) == states.index(self.stats[i][j]):
-                    R[states.index(i)][states.index(self.stats[i][j])] = j + "+e"
-                else:
-                    R[states.index(i)][states.index(self.stats[i][j])] = j
-                if len(R[states.index(i)][states.index(self.stats[i][j])]) > 1:
-                    if "(" in R[states.index(i)][states.index(self.stats[i][j])]:
-                        R[states.index(i)][states.index(self.stats[i][j])] = \
-                            R[states.index(i)][states.index(self.stats[i][j])].replace(")", "").replace("(", "")
-                    R[states.index(i)][states.index(self.stats[i][j])] = \
-                        "(" + R[states.index(i)][states.index(self.stats[i][j])] + ")"
-
-        def to_regex_(k):
-            # R[i][j] = R[i][j] + "+" + R[i][k+1] + "(" + R[k+1][k+1] + ")*" + R[k+1][j]
-            while k != self.stats_count - 1:
-                R_cpy = copy.deepcopy(R)
-                for i in self.stats.keys():
-                    for j in self.stats.keys():
-                        j = states.index(j)
-                        if "(" in R_cpy[k + 1][k + 1]:
-                            R[states.index(i)][j] = R_cpy[states.index(i)][j] + "+" + R_cpy[states.index(i)][k + 1] + \
-                                                    R_cpy[k + 1][k + 1] + "*" + R_cpy[k + 1][j]
-                        else:
-                            R[states.index(i)][j] = R_cpy[states.index(i)][j] + "+" + R_cpy[states.index(i)][k + 1] + \
-                                                    "(" + R_cpy[k + 1][k + 1] + ")*" + R_cpy[k + 1][j]
-                        # substr = ""
-                        # for _ in reversed(range(0, len(R[states.index(i)][j].split("*")[0]))):
-                        #    substr = R[states.index(i)][j].split("*")[0][_] + substr
-                        #    if R[states.index(i)][j].split("*")[0][_] == "(":
-                        #        break
-                        if "∅(" in R[states.index(i)][j]:
-                            R[states.index(i)][j] = R[states.index(i)][j][:R[states.index(i)][j].find("∅(")]
-                            R[states.index(i)][j] += "∅"
-                        if "*∅" in R[states.index(i)][j]:
-                            for indx in reversed(range(0, len(R[states.index(i)][j]))):
-                                if R[states.index(i)][j][indx] == "+" and \
-                                        R[states.index(i)][j][indx + 1] == "(":
-                                    R[states.index(i)][j] = R[states.index(i)][j][:indx]
-                        if "+∅+" in R[states.index(i)][j]:
-                            R[states.index(i)][j] = R[states.index(i)][j].replace("+∅+", "")
-                        if "∅+" in R[states.index(i)][j]:
-                            R[states.index(i)][j] = R[states.index(i)][j].replace("∅+", "")
-                        if "+∅" in R[states.index(i)][j]:
-                            R[states.index(i)][j] = R[states.index(i)][j].replace("+∅", "")
-                        print()
-
-                k += 1
-
-        to_regex_(-1)
-        print(R)
-
 
 if __name__ == '__main__':
-    n = NKA("lab1/file5.txt")
+    # n = NKA("lab1/file5.txt")
+    # n.info()
+    #
+    # d = DKA("lab1/dka_1.txt")
+    # d.info()
+
+    # f = open("lab1/rv1.txt", "r")
+    # print(d.to_reg())
+
+    n = NKA("lab1/file.txt")
     n.info()
+    p.print_(n)
 
-    d = DKA("lab1/dka_3.txt")
-    d.info()
+    print("nka to dka: ")
+    # p.print_in_file(n.to_dka())
+    d_test = n.to_dka()
+    p.print_(d_test)
+    print(n.chk("0"))
 
-    f = open("lab1/rv1.txt", "r")
-    # n.fr_rv(f.readline().replace(" ", ""))
-
-    print(d.to_regex_())
+    # out1 = p.test(d_test)
+    # out2 = p.test(n)
+    # print("checking chains: ", out1 == out2)

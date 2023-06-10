@@ -2,7 +2,7 @@ def print_(ka):
     keys_ = [_ for _, __ in ka.stats.items()]
     print("{:20}".format(""), end="")
     for _ in ka.alphabet:
-        if _ != "e":
+        # if _ != "e":
             print("{:10} {:10}".format("|", _), end="")
     print()
     sep = "-"
