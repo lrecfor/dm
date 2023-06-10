@@ -9,7 +9,6 @@ class NKA:
         self.start = None
         self.finite_states = list()
         self.e_nka = False
-        self.cur_stat = "x"
 
         self.__shiza = []
 
