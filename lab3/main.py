@@ -134,7 +134,7 @@ class NKA:
                     Qd.append(qd)
 
         Td = []
-        for qd in Qd:
+        for qd in list(Dd.keys()):
             Td += [qd for s in self.finite_states if s in qd]
 
         if self.start not in Dd:
@@ -217,10 +217,11 @@ class DKA:
             keys_cpy = sorted(copy.deepcopy(list(self.stats.keys())), reverse=True)
             for stat in keys_cpy:
                 if stat != self.start and stat not in self.finite_states:
-                    del_stat = stat
-                    stats_lst = {}
-                    stats_to = []
-                    stats_from = []
+                    del_stat = stat     # состояние, которое следует удалить
+                    stats_lst = {}  # список переходов из удаляемого состояния
+                    stats_to = []   # список состояний, в которые можно перейти из удаляемого
+                    stats_from = []     # список состояний, из которых можно перейти в удаляемое
+                    # цикл для заполнения выше описанных списков
                     for s in self.stats:
                         tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(s)].values())
                         if s == del_stat:
@@ -232,32 +233,52 @@ class DKA:
                                 stats_lst[(del_stat, _)] = list(self.stats[s].keys())[tmp_s.index(_)]
                         if del_stat in self.stats[s].values():
                             stats_from += s
-                            # stats_lst[(s, del_stat)] = list(self.stats[s].keys())[tmp_s.index(del_stat)]
 
+                    # для каждого перехода s из списка переходов из удаляемого состояния
+                    # s(удаляемое состояние, состояние)
                     for s in stats_lst:
+                        # если s это переход в себя же, переходим к следующему элементу
                         if s == (del_stat, del_stat):
                             continue
+                        # для каждого состояния из списка состояний, из которых можно перейти в удаляемое
                         for chg_st in stats_from:
                             R, P, S, Q = "", "", "", ""
+                            # если встретилось удаляемое состояние - переходим к следующему
                             if chg_st == del_stat:
                                 continue
+                            # переменные для доступа к элементам словаря
                             tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(chg_st)].values())
+                            tmp_del = list(list(self.stats.values())[list(self.stats.keys()).index(del_stat)].values())
                             if s[1] in self.stats[chg_st].values():
+                                # R - переход между обрабатываемым состоянием(chg_stat) и удаляемым
                                 R = list(self.stats[chg_st].keys())[tmp_s.index(s[1])] + "+"
+                                # удаляем из обрабатываемого состояния переход в удаляемое
                                 self.stats[chg_st].pop(list(self.stats[chg_st].keys())[tmp_s.index(s[1])])
+                                # обновляем переменную для доступа к элементам словаря
                                 tmp_s = list(list(self.stats.values())[list(self.stats.keys()).index(chg_st)].values())
+                            # если из обрабатываемого состояния можно перейти в удаляемое, сохраняем этот переход в Q
                             if del_stat in self.stats[chg_st].values():
                                 Q = list(self.stats[chg_st].keys())[tmp_s.index(del_stat)]
-                            if (del_stat, del_stat) in stats_lst:
-                                S = stats_lst[(del_stat, del_stat)] + "*"
-                                s = (del_stat, ", ".join(list(set(self.stats[del_stat].values()).difference(
-                                    set(del_stat)))))
+                            # Р - переход из удаляемого состояния в состояние, в которое можно перейти из удаляемого
                             P = stats_lst[(del_stat, s[1])]
+                            # если из удаляемого состояния можно перейти в него же, найдем S*
+                            if del_stat in stats_from:
+                                S = "".join(list(self.stats[del_stat].keys())[tmp_del.index(del_stat)])
+                                # если длина S больше 1, заключаем S в скобки
+                                if len(S) > 1:
+                                    S = "(" + S + ")*"
+                                else:
+                                    S += "*"
+                            # добавляем новый переход в таблицу переходов обрабатываемого состояния
+                            # если переход из R существует, то добавляем скобки в начале и конце
                             if R != "":
                                 self.stats[chg_st] |= {"(" + R + Q + S + P + ")": s[1]}
                             else:
+                                # если не существует, то записываем без скобок
                                 self.stats[chg_st] |= {R + Q + S + P: s[1]}
+                    # удаляем состояние
                     self.stats.pop(del_stat)
+                    # для каждого состояния, удаляем оставшиеся переходы в удаляемое состояние
                     for _ in self.stats.keys():
                         try:
                             tmp = list(list(self.stats.values())[list(self.stats.keys()).index(_)].values())
@@ -266,52 +287,76 @@ class DKA:
                             continue
 
             P, Q, S, T = "", "", "", ""
-            try:
+            # если начальное состояние равно финальному, возвращаем его переход в себя с * на конце
+            if len(list(self.stats.keys())) == 1:
+                S = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
+                    list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])]) + ")" + "*"
+                return str(S)
+            try:    # переход из начального в начальное
                 P = list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
-                    list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])] + "+"
+                    list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[0])]
             except ValueError:
                 pass
-            try:
+            try:    # переход из начального состояния в финальное
                 Q = "(" + str(list(self.stats[list(self.stats.keys())[0]].keys())[list(self.stats.get(
                     list(self.stats.keys())[0]).values()).index(list(self.stats.keys())[1])]) + ")"
             except ValueError:
                 pass
-            try:
+            try:    # переход их финального в финальный
                 S = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
                     list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[1])]) + ")" + "*"
             except ValueError:
                 pass
-            try:
+            try:    # переход из финального в начальное
                 T = "(" + str(list(self.stats[list(self.stats.keys())[1]].keys())[list(self.stats.get(
                     list(self.stats.keys())[1]).values()).index(list(self.stats.keys())[0])]) + ")"
             except ValueError:
                 pass
-            return "(" + str(P) + str(Q) + str(S) + str(T) + ")*" + str(Q) + str(S)
+            if T == "" or Q == "":
+                if P != "":
+                    return "(" + str(P) + ")*" + str(Q) + str(S)
+                else:
+                    return str(Q) + str(S)
+            return "(" + str(P) + "+" + str(Q) + str(S) + str(T) + ")*" + str(Q) + str(S)
 
+        # если количество финальных состояний больше 1
         if len(self.finite_states) > 1:
-            stats = copy.deepcopy(self.stats)
-            finite_states = copy.deepcopy(list(self.finite_states))
+            stats = copy.deepcopy(self.stats)   # изначальная таблица переходов
+            finite_states = copy.deepcopy(list(self.finite_states))     # изначальный список финальных состояний
 
-            to_reg_()
-            R_ = []
-            stats_cpy = copy.deepcopy(self.stats)
+            to_reg_()   # вызываем функцию преобразования единожды для
+            # удаления всех состояний, кроме начального и финальных
+            R_ = []     # список получаемых регулярных выражений
+            stats_cpy = copy.deepcopy(self.stats)   # копия таблицы переходов после удаления
+            # копия списка финальных состояний
             finite_states_cpy = sorted(copy.deepcopy(list(self.finite_states)), reverse=True)
+            # присваиваем таблице состояний дка полученную после удаления таблицу
             self.stats = copy.deepcopy(stats_cpy)
+            # для каждого финального состояния из копии изначальных
             for _ in finite_states_cpy:
-                self.finite_states.remove(_)
+                # удаляем все состояния, кроме _
+                for __ in finite_states:
+                    if __ != _:
+                        self.finite_states.remove(__)
+                # вызываем функцию и записываем полученное регулярное выражение в R_
                 R_ += [to_reg_()]
+                # возвращаем изначальный список финальных состояний
                 self.finite_states = finite_states
+                # присваиваем таблице состояний значение таблицы переходов после удаления
                 self.stats = copy.deepcopy(stats_cpy)
+            # возвращаем изначальную таблицу переходов
             self.stats = copy.deepcopy(stats)
+            # возвращаем склеенный список полученных регулярных выражений
             return "+".join(R_)
         else:
             return to_reg_()
 
 
 if __name__ == '__main__':
-    n = NKA()
+    n = NKA("file.txt")
+    d = n.to_dka()
 
-    d = DKA("dka_2.txt")
+    # d = DKA("dka_2.txt")
     d.info()
 
     print(d.to_reg())
